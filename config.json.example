@@ -1,0 +1,12 @@
+{
+  "debug": true,
+  "mongo": {
+    "@": {
+      "host": "localhost",
+      "port": 27017
+    },
+    "db": "sourced",
+    "collection": "people.d20160421"
+  },
+  "clusters": "/home/sourced/cache/clusters.pickle"
+}

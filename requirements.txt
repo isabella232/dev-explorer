@@ -1,0 +1,4 @@
+flask
+pymongo
+sklearn
+markdown
