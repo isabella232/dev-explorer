@@ -6,7 +6,10 @@
       "port": 27017
     },
     "db": "sourced",
-    "collection": "people.d20160421"
+    "collections": {
+      "people": "people.d20160421",
+      "proposals": "proposals"
+    }
   },
   "clusters": "/home/sourced/cache/clusters.pickle"
 }
