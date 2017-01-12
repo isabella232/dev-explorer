@@ -7,9 +7,11 @@
     },
     "db": "sourced",
     "collections": {
-      "people": "people.d20160421",
-      "proposals": "proposals"
+      "people": "people.d20160421"
     }
   },
-  "clusters": "/home/sourced/cache/clusters.pickle"
+  "clusters": {
+    "topics":  "topic_clusters.pickle",
+    "langs": "lang_clusters.pickle"
+  }
 }

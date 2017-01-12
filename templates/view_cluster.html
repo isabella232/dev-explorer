@@ -66,15 +66,17 @@
 format.extend(String.prototype, {});
 
 function get_color(dev) {
-  for (let e of dev.email) {
-    if (e.address == "{{dev}}") {
-      return "red";
+  if (dev.email) {
+    for (let e of dev.email) {
+      if (e.address == "{{dev}}") {
+        return "red";
+      }
     }
   }
-  if (dev.contacted) {
-    return dev.responded? "purple" : "gray";
+  if (dev.scheme == "{{map}}") {
+      return "purple";
   }
-  return d3.scale.category20()(1);
+  return "gray";  // d3.scale.category20()(1);
 }
 
 hljs.initHighlightingOnLoad();
@@ -86,9 +88,10 @@ hljs.initHighlightingOnLoad();
       height = 800,
       radius = 15;
 
-  const indices = {"id": 0, "email": 1, "contacted": 1.3, "responded": 1.6,
-                   "location": 2, "pagerank": 3, "profiles": 4, "personal": 5,
-                   "skills": 6, "x": 7, "y": 8};
+  const indices = {
+      "id": 0, "email": 1, "location": 2, "pagerank": 3,
+      "profiles": 4, "personal": 5, "skills": 6, "x": 7, "y": 8
+  };
 
   var zoom = d3.behavior.zoom()
     .scaleExtent([0.1, 10])
@@ -115,6 +118,7 @@ hljs.initHighlightingOnLoad();
   }
 
   d3.json("json?dev={{dev}}", function(data) {
+      console.log(data);
     document.title = "{{dev}} - " + data.nodes.length;
     data.nodes.forEach(function(d, i) {
       d.x = data.tsne[i][0] * width / 2;
@@ -151,15 +155,17 @@ hljs.initHighlightingOnLoad();
           d3.select(this).style("fill", get_color(d3.select(this).datum()));
         });
     nodes.each(function(n) {
-      for (let e of n.email) {
-        if (e.address == "{{dev}}") {
-          console.log(n);
-          show_info(n);
+      if (n.email) {
+        for (let e of n.email) {
+          if (e.address == "{{dev}}") {
+            console.log(n);
+            show_info(n);
+          }
         }
       }
     });
     var labels = g.selectAll("text")
-        .data(data.nodes)
+      .data(data.nodes)
       .enter().append("text")
         .attr("class", "label")
         .attr("x", function(d) { return d.x + radius; })
