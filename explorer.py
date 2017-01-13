@@ -29,18 +29,24 @@ def dev_id(dev):
     return dev["_id"].binary
 
 
+def dense(vec):
+    if isinstance(vec, numpy.ndarray):
+        return vec
+    return vec.todense().A1
+
+
 def refine(devs, scheme, me):
     features = bp.features[scheme]
     id2index = bp.id2index[scheme]
     samples = numpy.zeros((len(devs), features.shape[-1]))
     for i, dev in enumerate(devs):
-        samples[i] = features[id2index[dev_id(dev)]]
-    my_features = features[id2index[dev_id(me)]]
+        samples[i] = dense(features[id2index[dev_id(dev)]])
+    my_features = dense(features[id2index[dev_id(me)]])
     dists = [(d, i) for i, d in enumerate(numpy.arccos(numpy.minimum(
         samples.dot(my_features), 1)))]
     dists.sort()
     for j, (_, i) in enumerate(dists[:CUT]):
-        samples[j] = features[id2index[dev_id(devs[i])]]
+        samples[j] = dense(features[id2index[dev_id(devs[i])]])
     model = TSNE(random_state=777)
     positions = model.fit_transform(samples[:CUT])
     positions /= numpy.max(numpy.abs(positions))
