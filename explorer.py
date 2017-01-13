@@ -20,6 +20,9 @@ CUT = 20
 
 def cook(dev, scheme):
     p = {k: dev.get(k) for k in FIELDS}
+    for skills in p["skills"].values():
+        for skill in skills.values():
+            del skill["activity"]
     p["id"] = str(dev["_id"])
     p["scheme"] = scheme
     return p
@@ -42,12 +45,16 @@ def refine(devs, scheme, me):
     for i, dev in enumerate(devs):
         samples[i] = dense(features[id2index[dev_id(dev)]])
     my_features = dense(features[id2index[dev_id(me)]])
-    dists = [(d, i) for i, d in enumerate(numpy.arccos(numpy.minimum(
-        samples.dot(my_features), 1)))]
+    if scheme == "topics":
+        dists = [(d, i) for i, d in enumerate(numpy.arccos(numpy.minimum(
+            samples.dot(my_features), 1)))]
+    else:
+        dists = [(d, i) for i, d in
+                 enumerate(numpy.sum((samples - my_features)**2, axis=1))]
     dists.sort()
     for j, (_, i) in enumerate(dists[:CUT]):
         samples[j] = dense(features[id2index[dev_id(devs[i])]])
-    model = TSNE(random_state=777)
+    model = TSNE(random_state=777 + (hash(scheme) % 999))
     positions = model.fit_transform(samples[:CUT])
     positions /= numpy.max(numpy.abs(positions))
     return [(p[0], p[1]) for p in positions], [devs[i] for _, i in dists[:CUT]]
