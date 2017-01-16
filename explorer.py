@@ -22,7 +22,10 @@ def cook(dev, scheme):
     p = {k: dev.get(k) for k in FIELDS}
     for skills in p["skills"].values():
         for skill in skills.values():
-            del skill["activity"]
+            try:
+                del skill["activity"]
+            except KeyError:
+                continue
     p["id"] = str(dev["_id"])
     p["scheme"] = scheme
     return p
@@ -38,26 +41,55 @@ def dense(vec):
     return vec.todense().A1
 
 
-def refine(devs, scheme, me):
+def refine(devs, base_scheme, me):
+    spos = []
+    sdev = []
+    for scheme, features in bp.features.items():
+        id2index = bp.id2index[scheme]
+        samples = numpy.zeros((len(devs), features.shape[-1]))
+        for i, dev in enumerate(devs):
+            samples[i] = dense(features[id2index[dev_id(dev)]])
+        my_features = dense(features[id2index[dev_id(me)]])
+        if scheme == "topics":
+            dists = [(d, i) for i, d in enumerate(numpy.arccos(numpy.minimum(
+                samples.dot(my_features), 1)))]
+        else:
+            dists = [(d, i) for i, d in enumerate(
+                numpy.sum((samples - my_features) ** 2, axis=1))]
+        dists.sort()
+        for j, (_, i) in enumerate(dists[:CUT]):
+            samples[j] = dense(features[id2index[dev_id(devs[i])]])
+        model = TSNE(random_state=777 + (hash(base_scheme) % 999) ^
+                                  (hash(scheme) % 999))
+        positions = model.fit_transform(samples[:CUT])
+        positions /= numpy.max(numpy.abs(positions))
+        spos.extend((p[0], p[1]) for p in positions)
+        for _, i in dists[:CUT]:
+            dev = dict(devs[i])
+            dev["subscheme"] = scheme
+            sdev.append(dev)
+    return spos, sdev
+
+
+def nearest(scheme, me):
     features = bp.features[scheme]
     id2index = bp.id2index[scheme]
-    samples = numpy.zeros((len(devs), features.shape[-1]))
-    for i, dev in enumerate(devs):
-        samples[i] = dense(features[id2index[dev_id(dev)]])
     my_features = dense(features[id2index[dev_id(me)]])
     if scheme == "topics":
         dists = [(d, i) for i, d in enumerate(numpy.arccos(numpy.minimum(
-            samples.dot(my_features), 1)))]
+            features.dot(my_features), 1)))]
     else:
-        dists = [(d, i) for i, d in
-                 enumerate(numpy.sum((samples - my_features)**2, axis=1))]
+        dists = [(d, i) for i, d in enumerate(
+            numpy.sum((features - my_features) ** 2, axis=1))]
     dists.sort()
+    samples = numpy.zeros((CUT, features.shape[-1]))
     for j, (_, i) in enumerate(dists[:CUT]):
-        samples[j] = dense(features[id2index[dev_id(devs[i])]])
+        samples[j] = dense(features[i])
     model = TSNE(random_state=777 + (hash(scheme) % 999))
     positions = model.fit_transform(samples[:CUT])
     positions /= numpy.max(numpy.abs(positions))
-    return [(p[0], p[1]) for p in positions], [devs[i] for _, i in dists[:CUT]]
+    return [(p[0], p[1]) for p in positions], \
+        [ObjectId(bp.index2id[scheme][i]) for _, i in dists[:CUT]]
 
 
 @bp.route("/json", methods=["POST", "GET"])
@@ -72,6 +104,7 @@ def lookup_developer():
     if devobj is None:
         return "", 404
     data = []
+    """
     for scheme, clusters in sorted(bp.clusters.items()):
         cluster = clusters[bp.id2index[scheme][dev_id(devobj)]]
         dev_ids = [ObjectId(bp.index2id[scheme][i])
@@ -80,6 +113,12 @@ def lookup_developer():
         neighbors.sort(key=lambda d: d["_id"])
         positioned, reduced_neighbors = refine(neighbors, scheme, devobj)
         cooked = [cook(n, scheme) for n in reduced_neighbors]
+        data.append((cooked, positioned))
+    """
+    for scheme in bp.features:
+        positioned, neighbors = nearest(scheme, devobj)
+        neighbors = list(bp.db.find({"_id": {"$in": neighbors}}, FIELDS))
+        cooked = [cook(n, scheme) for n in neighbors]
         data.append((cooked, positioned))
     result = {"nodes": list(chain.from_iterable(d[0] for d in data)),
               "tsne": list(chain.from_iterable(d[1] for d in data))}
